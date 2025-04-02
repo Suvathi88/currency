@@ -1,24 +1,32 @@
 from flask import Flask, render_template, request
-from forex_python.converter import CurrencyRates
+import requests
 
 app = Flask(__name__)
-currency_rates = CurrencyRates()
+
+API_KEY = "your_openweathermap_api_key"  # Replace with your API key
+BASE_URL = "http://api.openweathermap.org/data/2.5/weather"
 
 @app.route("/", methods=["GET", "POST"])
-def index():
+def home():
+    weather_data = None
     if request.method == "POST":
-        amount = float(request.form["amount"])
-        from_currency = request.form["from_currency"]
-        to_currency = request.form["to_currency"]
+        city = request.form["city"]
+        params = {"q": city, "appid": API_KEY, "units": "metric"}
+        response = requests.get(BASE_URL, params=params)
+        if response.status_code == 200:
+            data = response.json()
+            weather_data = {
+                "city": city,
+                "temperature": data["main"]["temp"],
+                "description": data["weather"][0]["description"],
+                "humidity": data["main"]["humidity"],
+                "wind_speed": data["wind"]["speed"],
+                "icon": f"http://openweathermap.org/img/wn/{data['weather'][0]['icon']}.png"
+            }
+        else:
+            weather_data = {"error": "City not found!"}
 
-        # Convert currency
-        try:
-            converted_amount = currency_rates.convert(from_currency, to_currency, amount)
-            return render_template("index.html", converted_amount=converted_amount, amount=amount, from_currency=from_currency, to_currency=to_currency)
-        except Exception as e:
-            return render_template("index.html", error="Error in conversion. Please check the input.")
-
-    return render_template("index.html", converted_amount=None)
+    return render_template("index.html", weather=weather_data)
 
 if __name__ == "__main__":
     app.run(debug=True)
